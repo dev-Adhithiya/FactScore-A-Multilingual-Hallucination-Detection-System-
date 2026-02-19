@@ -1,0 +1,48 @@
+# Virtual environment
+venv/
+
+# Knowledge base (too large for GitHub)
+data/knowledge_base/faiss.index
+data/knowledge_base/passages.jsonl
+
+# Logs and cache
+logs/
+cache/
+
+# Model weights (downloaded automatically from HuggingFace)
+models/
+
+# Environment variables / secrets
+.env
+.env.local
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+
+# Pytest cache
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter notebooks (if any)
+.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/
+
+# Temporary files
+*.tmp
+*.log

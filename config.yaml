@@ -1,0 +1,57 @@
+system:
+  name: satya-vaani
+  version: "1.0.0"
+  log_dir: logs/
+  cache_dir: cache/
+
+generation:
+  model: microsoft/Phi-3-mini-4k-instruct
+  temperature: 0.7
+  max_new_tokens: 300
+  top_p: 0.9
+  device: auto  # 'cuda', 'cpu', or 'auto'
+
+embedding:
+  model: sentence-transformers/LaBSE
+  batch_size: 64
+
+nli:
+  model: joeddav/xlm-roberta-large-xnli
+  max_length: 512
+
+translation:
+  model: Helsinki-NLP/opus-mt-mul-en
+  max_length: 512
+
+retrieval:
+  faiss_index_path: data/knowledge_base/faiss.index
+  passages_path: data/knowledge_base/passages.jsonl
+  top_k: 5
+
+scoring:
+  weights:
+    entailment: 0.4
+    retrieval: 0.3
+    drift: 0.3
+  retrieval_weights:
+    cosine: 0.5
+    entity_overlap: 0.3
+    number_match: 0.2
+  hallucination_threshold: 0.6
+
+knowledge_base:
+  chunk_size: 250
+  languages:
+    - en
+    - hi
+    - ta
+    - te
+    - bn
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  workers: 1
+
+dashboard:
+  port: 8501
