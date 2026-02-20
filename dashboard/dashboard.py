@@ -11,6 +11,15 @@ import pandas as pd
 import requests
 import json
 
+@st.cache_resource
+def get_cached_pipeline(config_path: str = "config.yaml"):
+    """
+    Load pipeline once and cache it permanently in memory.
+    Models will never reload as long as the dashboard is running.
+    """
+    from core.pipeline import Pipeline
+    p = Pipeline(config_path)
+    return p.run_pipeline
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Hallucination Detector",
@@ -181,8 +190,7 @@ if run_btn and prompt.strip():
                 st.error(f"API error: {e}")
         else:
             try:
-                from core.pipeline import run_pipeline
-                result = run_pipeline(prompt, language, config_path)
+                result = get_cached_pipeline(config_path)(prompt, language)
             except Exception as e:
                 st.error(f"Pipeline error: {e}")
                 import traceback
