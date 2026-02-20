@@ -77,6 +77,7 @@ class Pipeline:
         Returns:
             Structured result dict.
         """
+        self._load_models()
         from core.generation import get_engine
         from core.claim_extraction import get_extractor
         from core.retrieval import get_index

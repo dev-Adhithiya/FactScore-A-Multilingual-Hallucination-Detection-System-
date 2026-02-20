@@ -28,7 +28,7 @@ class GenerationEngine:
         if self._loaded:
             return
         import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM
+        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 
         model_id = self.config["model"]
         device = self.config.get("device", "auto")
@@ -43,11 +43,18 @@ class GenerationEngine:
         else:
             device_map = device
 
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map=device_map,
-            torch_dtype="auto",
+            quantization_config=bnb_config,
         )
+        
         self._loaded = True
         logger.info(f"Generation model loaded on {device_map}")
 
