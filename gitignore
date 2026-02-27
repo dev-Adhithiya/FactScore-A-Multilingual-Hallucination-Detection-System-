@@ -1,18 +1,22 @@
 # Virtual environment
 venv/
 
-# Knowledge base (too large for GitHub)
+# Knowledge base (large files)
 data/knowledge_base/faiss.index
 data/knowledge_base/passages.jsonl
+data/fever_wiki/
+
+# Dataset (add manually)
+Poly-FEVER/
 
 # Logs and cache
 logs/
 cache/
 
-# Model weights (downloaded automatically from HuggingFace)
+# Model weights (downloaded from HuggingFace automatically)
 models/
 
-# Environment variables / secrets
+# Secrets
 .env
 .env.local
 
@@ -21,30 +25,23 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pdb
 
-# Pytest cache
+# Test cache
 .pytest_cache/
+tests/poly_fever_results_*.json
 
 # OS files
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Editor files
+# Editor
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Jupyter notebooks (if any)
-.ipynb_checkpoints/
-
-# Streamlit cache
+# Streamlit
 .streamlit/
 
-# Temporary files
+# Temp
 *.tmp
 *.log
-venv/ 
-.git/ 

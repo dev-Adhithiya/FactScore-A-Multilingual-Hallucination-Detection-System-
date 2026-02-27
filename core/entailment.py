@@ -1,5 +1,6 @@
 """
 entailment.py - NLI-based entailment scoring using XLM-RoBERTa.
+Optimized: batched inference instead of one forward pass per passage.
 """
 
 import logging
@@ -32,21 +33,14 @@ class EntailmentChecker:
         self._model.to(self._device)
         self._model.eval()
 
-        # Map label string → index (handles label order variations)
         labels = self._model.config.id2label
         self._label2id = {v.lower(): k for k, v in labels.items()}
         logger.info(f"NLI model loaded. Labels: {labels}")
 
     def compute_entailment(self, claim: str, passages: List[str]) -> float:
         """
-        Compute maximum entailment probability of claim against passages.
-
-        Args:
-            claim: The claim string (hypothesis).
-            passages: List of evidence passages (premises).
-
-        Returns:
-            Max entailment probability in [0, 1].
+        Compute max entailment probability — BATCHED for speed.
+        All passages processed in a single forward pass instead of one-by-one.
         """
         if not passages:
             return 0.0
@@ -54,16 +48,66 @@ class EntailmentChecker:
         self._load()
         import torch
 
-        max_prob = 0.0
-        entail_key = next(
-            (k for k in self._label2id if "entail" in k), "entailment"
-        )
+        entail_key = next((k for k in self._label2id if "entail" in k), "entailment")
         entail_idx = self._label2id.get(entail_key, 0)
 
-        for passage in passages:
+        # Batch all (passage, claim) pairs together
+        encoding = self._tokenizer(
+            passages,                          # premises (batch)
+            [claim] * len(passages),           # hypothesis repeated
+            return_tensors="pt",
+            max_length=self.config.get("max_length", 512),
+            truncation=True,
+            padding=True,
+        ).to(self._device)
+
+        with torch.no_grad():
+            logits = self._model(**encoding).logits          # [N, 3]
+            probs  = torch.softmax(logits, dim=-1)           # [N, 3]
+            entail_probs = probs[:, entail_idx]              # [N]
+            max_prob = entail_probs.max().item()
+
+        return round(max_prob, 4)
+
+    def compute_entailment_batch(
+        self, claims: List[str], passages_per_claim: List[List[str]]
+    ) -> List[float]:
+        """
+        Score multiple claims at once — one giant batch for all claims × passages.
+        Dramatically faster than calling compute_entailment() in a loop.
+        """
+        if not claims:
+            return []
+
+        self._load()
+        import torch
+
+        entail_key = next((k for k in self._label2id if "entail" in k), "entailment")
+        entail_idx = self._label2id.get(entail_key, 0)
+
+        # Build flat list of (passage, claim) pairs, track which claim each belongs to
+        pairs_premise   = []
+        pairs_hypothesis = []
+        claim_indices   = []  # which claim index each pair belongs to
+
+        for claim_idx, (claim, passages) in enumerate(zip(claims, passages_per_claim)):
+            for passage in passages:
+                pairs_premise.append(passage)
+                pairs_hypothesis.append(claim)
+                claim_indices.append(claim_idx)
+
+        if not pairs_premise:
+            return [0.0] * len(claims)
+
+        # Run in mini-batches to avoid OOM
+        BATCH_SIZE = 16
+        all_probs = []
+
+        for start in range(0, len(pairs_premise), BATCH_SIZE):
+            end = start + BATCH_SIZE
             encoding = self._tokenizer(
-                passage,
-                claim,
+                pairs_premise[start:end],
+                pairs_hypothesis[start:end],
                 return_tensors="pt",
                 max_length=self.config.get("max_length", 512),
                 truncation=True,
@@ -72,13 +116,16 @@ class EntailmentChecker:
 
             with torch.no_grad():
                 logits = self._model(**encoding).logits
-                probs = torch.softmax(logits, dim=-1)[0]
-                entail_prob = probs[entail_idx].item()
+                probs  = torch.softmax(logits, dim=-1)
+                all_probs.extend(probs[:, entail_idx].tolist())
 
-            if entail_prob > max_prob:
-                max_prob = entail_prob
+        # Aggregate: max entailment per claim
+        results = [0.0] * len(claims)
+        for prob, claim_idx in zip(all_probs, claim_indices):
+            if prob > results[claim_idx]:
+                results[claim_idx] = prob
 
-        return round(max_prob, 4)
+        return [round(r, 4) for r in results]
 
 
 # Singleton

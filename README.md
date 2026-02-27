@@ -1,16 +1,88 @@
 # Hallucination Detection & Trust Scorer
 
-A production-grade multilingual AI hallucination detection system that analyzes generated text, extracts atomic claims, retrieves evidence, and produces per-claim trust scores with an interactive dashboard.
+A production-grade multilingual AI hallucination detection system that analyzes generated text, extracts atomic claims, retrieves evidence from a knowledge base, and produces per-claim trust scores with an interactive dashboard.
 
 ---
 
-## What It Does
+## Project Structure
 
-1. Takes a prompt and generates a factual response using an LLM
-2. Extracts individual verifiable claims from the response
-3. Retrieves supporting evidence from a Wikipedia-based knowledge base
-4. Scores each claim using entailment, retrieval similarity, and cross-lingual drift
-5. Displays results in an interactive dashboard with color-coded highlights
+```
+hallucination-detection-trust-scorer/
+│
+├── core/                          # Core pipeline modules
+│   ├── __init__.py
+│   ├── generation.py              # LLM text generation (Phi-3, 4-bit quantized)
+│   ├── claim_extraction.py        # Atomic claim extraction (spaCy + Stanza)
+│   ├── retrieval.py               # Batch FAISS evidence retrieval (LaBSE)
+│   ├── entailment.py              # Batch NLI entailment scoring (XLM-RoBERTa)
+│   ├── drift.py                   # Cross-lingual semantic drift measurement
+│   ├── scoring.py                 # Composite risk score computation
+│   ├── pipeline.py                # Full pipeline orchestrator (batched)
+│   └── model_server.py            # Persistent FastAPI model server
+│
+├── api/                           # REST API
+│   ├── __init__.py
+│   └── app.py                     # FastAPI endpoints (/analyze, /health)
+│
+├── dashboard/                     # Interactive UI
+│   ├── __init__.py
+│   └── dashboard.py               # Streamlit dashboard
+│
+├── scripts/                       # Knowledge base builders
+│   ├── __init__.py
+│   ├── build_kb.py                # General Wikipedia KB builder
+│   └── build_fever_kb.py          # Targeted KB builder for Poly-FEVER evaluation
+│
+├── tests/                         # Tests and evaluation
+│   ├── __init__.py
+│   ├── test_system.py             # Unit tests (18 tests, no model loading)
+│   └── test_poly_fever.py         # Accuracy evaluation on Poly-FEVER dataset
+│
+├── Poly-FEVER/                    # Dataset (not in git)
+│   └── Poly-FEVER.tsv             # Multilingual fact verification dataset
+│
+├── data/                          # Generated at runtime (not in git)
+│   └── knowledge_base/
+│       ├── faiss.index            # FAISS vector index
+│       └── passages.jsonl         # Knowledge base passages
+│
+├── logs/                          # Pipeline logs (not in git)
+├── config.yaml                    # Central configuration
+├── requirements.txt               # Python dependencies
+├── Dockerfile                     # Container definition
+├── docker-compose.yml             # Multi-service deployment
+├── .gitignore
+└── README.md
+```
+
+---
+
+## How It Works
+
+```
+User Prompt
+     │
+     ▼
+[1] LLM Generation (Phi-3-mini 4-bit)
+     │  Generates factual response
+     ▼
+[2] Claim Extraction (spaCy / Stanza)
+     │  Splits into atomic verifiable sentences
+     ▼
+[3] Cross-lingual Drift (LaBSE + Helsinki-NLP)
+     │  Measures semantic shift across languages
+     ▼
+[4] Batch Evidence Retrieval (LaBSE + FAISS)
+     │  Finds top-k supporting passages for ALL claims at once
+     ▼
+[5] Batch Entailment Scoring (XLM-RoBERTa-large-xnli)
+     │  Scores ALL claim×passage pairs in one forward pass
+     ▼
+[6] Risk Score Computation
+     │  Risk = 0.4×(1-Entailment) + 0.3×(1-Retrieval) + 0.3×Drift
+     ▼
+Dashboard / API Response
+```
 
 ---
 
@@ -19,25 +91,26 @@ A production-grade multilingual AI hallucination detection system that analyzes 
 ```
 Risk = 0.4 × (1 - Entailment) + 0.3 × (1 - Retrieval) + 0.3 × Drift
 
-Risk > 0.6 → Hallucinated 🔴
-Risk 0.4–0.6 → Uncertain  🟡
-Risk < 0.4 → Reliable     🟢
+Risk > 0.6  →  Hallucinated  🔴
+Risk 0.4–0.6 →  Uncertain    🟡
+Risk < 0.4  →  Reliable      🟢
 ```
 
 ---
 
 ## Tech Stack
 
-| Component | Model / Library |
-|-----------|----------------|
-| Text Generation | microsoft/Phi-3-mini-4k-instruct |
-| Embeddings | sentence-transformers/LaBSE |
-| Entailment (NLI) | joeddav/xlm-roberta-large-xnli |
-| Translation | Helsinki-NLP/opus-mt-mul-en |
-| Vector Search | FAISS |
-| NLP | spaCy + Stanza |
-| API | FastAPI |
-| Dashboard | Streamlit |
+| Component | Model / Library | Purpose |
+|-----------|----------------|---------|
+| Text Generation | microsoft/Phi-3-mini-4k-instruct (4-bit) | Generate factual responses |
+| Embeddings | sentence-transformers/LaBSE | Multilingual semantic search |
+| Entailment | joeddav/xlm-roberta-large-xnli | NLI-based claim verification |
+| Translation | Helsinki-NLP/opus-mt-mul-en | Cross-lingual drift measurement |
+| Vector Search | FAISS (GPU) | Fast evidence retrieval |
+| NLP | spaCy + Stanza | Claim extraction & NER |
+| Model Server | FastAPI + uvicorn | Persistent model hosting |
+| Dashboard | Streamlit | Interactive UI |
+| Quantization | bitsandbytes (4-bit NF4) | Fit models in 8GB VRAM |
 
 ---
 
@@ -78,9 +151,9 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 3. Install PyTorch (match your CUDA version)
+### 3. Install PyTorch
 ```bash
-# CUDA 12.1
+# CUDA 12.1 (recommended)
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 # CUDA 11.8
@@ -97,35 +170,69 @@ python -m spacy download en_core_web_sm
 ```
 
 ### 5. Build Knowledge Base
-Downloads Wikipedia articles, embeds them, and builds the FAISS search index.
+
+**Option A — General Wikipedia (quick start):**
 ```bash
 python scripts/build_kb.py --languages en hi ta --limit 1000
 ```
-- `--languages` : Wikipedia language codes (en, hi, ta, te, bn, etc.)
-- `--limit` : Number of articles per language (start with 500–1000)
+
+**Option B — Targeted KB for Poly-FEVER evaluation (recommended):**
+```bash
+python scripts/build_fever_kb.py --max_articles 5000
+```
+This fetches Wikipedia articles for the exact entities mentioned in Poly-FEVER claims, giving much better retrieval accuracy during evaluation.
 
 ---
 
 ## Running the System
 
-### Start the Dashboard (Direct Mode)
+### Step 1 — Start Model Server (Terminal 1)
+```bash
+python core/model_server.py
+```
+Wait until you see:
+```
+ALL MODELS LOADED. Server is ready.
+```
+Models load **once** and stay in memory. Do not close this terminal.
+
+### Step 2 — Start Dashboard (Terminal 2)
 ```bash
 python -m streamlit run dashboard/dashboard.py
 ```
 Open **http://localhost:8501** in your browser.
 
-### Start the API Server (Optional)
+---
+
+## Running Tests
+
+### Unit Tests (no models required, runs in ~5 seconds)
 ```bash
-uvicorn api.app:app --host 0.0.0.0 --port 8000
+pytest tests/test_system.py -v
 ```
-API docs available at **http://localhost:8000/docs**
+
+### Poly-FEVER Accuracy Evaluation (model server must be running)
+```bash
+# English claims
+python tests/test_poly_fever.py --language en --max_samples 50
+
+# Hindi claims
+python tests/test_poly_fever.py --language hi --max_samples 50
+
+# Tamil claims
+python tests/test_poly_fever.py --language ta --max_samples 50
+```
+
+Available languages: `en`, `hi`, `ta`, `bn`, `ar`, `ja`, `ko`, `th`, `ka`, `am`
+
+Results saved to `tests/poly_fever_results_{language}.json`.
 
 ---
 
 ## API Usage
 
 ```bash
-curl -X POST http://localhost:8000/analyze \
+curl -X POST http://localhost:8001/analyze \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Explain the causes of the Green Revolution in India.", "language": "English"}'
 ```
@@ -154,6 +261,48 @@ curl -X POST http://localhost:8000/analyze \
 
 ---
 
+## Performance (RTX 4060 Laptop 8GB, 16GB RAM)
+
+| Stage | Time |
+|-------|------|
+| Model server startup (first time) | ~3-4 min |
+| Model server startup (cached) | ~30-60s |
+| Per-prompt analysis | ~20-30s |
+| Knowledge base build (5000 articles) | ~20 min |
+
+**Optimization applied:** Batch retrieval and batch entailment — all claims processed together in single forward passes instead of per-claim loops.
+
+---
+
+## Expected Accuracy on Poly-FEVER
+
+| Knowledge Base | Accuracy |
+|----------------|---------|
+| 272 random articles | ~0% (no relevant evidence) |
+| 5,000 targeted articles | ~55-65% |
+| 50,000+ targeted articles | ~70-80% |
+
+---
+
+## Configuration
+
+Edit `config.yaml` to customize models, thresholds, and paths:
+
+```yaml
+generation:
+  model: microsoft/Phi-3-mini-4k-instruct
+  temperature: 0.7
+  max_new_tokens: 300
+
+scoring:
+  hallucination_threshold: 0.6   # Lower = stricter detection
+
+retrieval:
+  top_k: 5                       # Evidence passages per claim
+```
+
+---
+
 ## Docker Deployment
 
 ```bash
@@ -164,76 +313,11 @@ docker-compose up --build
 
 ---
 
-## Project Structure
-
-```
-hallucination-detection-trust-scorer/
-├── core/
-│   ├── generation.py        # LLM text generation
-│   ├── claim_extraction.py  # Atomic claim extraction
-│   ├── retrieval.py         # FAISS evidence retrieval
-│   ├── entailment.py        # NLI entailment scoring
-│   ├── drift.py             # Cross-lingual drift
-│   ├── scoring.py           # Risk score computation
-│   └── pipeline.py          # Pipeline orchestrator
-├── api/
-│   └── app.py               # FastAPI server
-├── dashboard/
-│   └── dashboard.py         # Streamlit dashboard
-├── scripts/
-│   └── build_kb.py          # Knowledge base builder
-├── tests/
-│   └── test_system.py       # Unit tests
-├── config.yaml              # Configuration
-├── requirements.txt
-├── Dockerfile
-└── docker-compose.yml
-```
-
----
-
-## Configuration
-
-Edit `config.yaml` to customize:
-
-```yaml
-generation:
-  model: microsoft/Phi-3-mini-4k-instruct
-  temperature: 0.7
-  max_new_tokens: 300
-
-scoring:
-  hallucination_threshold: 0.6   # Lower = stricter
-
-retrieval:
-  top_k: 5   # Evidence passages per claim
-```
-
----
-
-## Running Tests
-
-```bash
-pytest tests/ -v
-```
-
----
-
-## Performance (RTX 4060 Laptop, 16GB RAM)
-
-| Stage | Time |
-|-------|------|
-| First prompt (model loading) | ~60 sec |
-| Subsequent prompts | ~20–30 sec |
-| Knowledge base build (1000 articles) | ~10 min |
-
----
-
 ## Notes
 
-- First run downloads models (~5–8 GB total). Cached after that.
-- Knowledge base only contains what was fetched during `build_kb.py`. Add custom passages to `data/knowledge_base/passages.jsonl` for better coverage on specific topics.
-- The system detects hallucinations based on retrieved evidence — a claim may be correct but flagged if the knowledge base lacks supporting passages.
+- Models are downloaded automatically from HuggingFace on first run (~6-8 GB total, cached after)
+- Knowledge base accuracy depends on what articles were fetched — use `build_fever_kb.py` for Poly-FEVER evaluation
+- A claim may be correct but flagged as hallucinated if the knowledge base lacks supporting evidence
 
 ---
 

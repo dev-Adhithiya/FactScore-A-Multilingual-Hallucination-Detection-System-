@@ -1,0 +1,94 @@
+{
+  "language": "en",
+  "total": 10,
+  "accuracy": 0.7,
+  "precision": 0,
+  "recall": 0.0,
+  "f1": 0,
+  "tp": 0,
+  "tn": 7,
+  "fp": 0,
+  "fn": 3,
+  "samples": [
+    {
+      "id": "1",
+      "claim": "Aramais Yepiskoposyan played for FC Ararat Yerevan, an Armenian football club based in Yerevan during 1986 to 1991.",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.5479,
+      "correct": true
+    },
+    {
+      "id": "2",
+      "claim": "Scot's book is titled The Discoverie of Witchcraft, and was never published at the end the printer gives his name, there",
+      "ground": "REFUTES",
+      "predicted": "SUPPORTS",
+      "risk": 0.4335,
+      "correct": false
+    },
+    {
+      "id": "3",
+      "claim": "In John Laurie's partial television credits, he was part of the Bees on the Boat-Deck in 1939 and Jackanory in 1971.",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.5498,
+      "correct": true
+    },
+    {
+      "id": "4",
+      "claim": "List of Once Upon a Time (debuted October 23, 2011) episodes consists of 10 specials, one of the narrators Alan Dale.",
+      "ground": "REFUTES",
+      "predicted": "SUPPORTS",
+      "risk": 0.4391,
+      "correct": false
+    },
+    {
+      "id": "5",
+      "claim": "Per Axel Rydberg, born on July 6, 1860 in Odh, Västergötland, situated outside Sweden, was a graduate of University of N",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.5791,
+      "correct": true
+    },
+    {
+      "id": "6",
+      "claim": "A village in China, in 2011 Kolhan had 693 people with around half (390) being workers.",
+      "ground": "REFUTES",
+      "predicted": "SUPPORTS",
+      "risk": 0.5175,
+      "correct": false
+    },
+    {
+      "id": "7",
+      "claim": "Xiao Sha competed in the World Championships and the World Cup.",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.572,
+      "correct": true
+    },
+    {
+      "id": "8",
+      "claim": "The Glenn–Thompson Plantation, a historic plantation house near Pittsview in Russell County, Alabama, has undergone exte",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.5591,
+      "correct": true
+    },
+    {
+      "id": "9",
+      "claim": "Ken Banks developed the FrontlineSMS (language: Java) in 2005 to help conservationists keep in touch with communities in",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.5436,
+      "correct": true
+    },
+    {
+      "id": "10",
+      "claim": "Walter Tyrrell was credited with three aerial victories in Lamotte, a commune in the Somme department of northern France",
+      "ground": "SUPPORTS",
+      "predicted": "SUPPORTS",
+      "risk": 0.5399,
+      "correct": true
+    }
+  ]
+}
