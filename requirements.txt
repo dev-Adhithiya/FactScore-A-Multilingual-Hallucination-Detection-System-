@@ -1,35 +1,46 @@
-# Satya Vaani - Requirements
-# Install: pip install -r requirements.txt
+# Hallucination Detection & Trust Scorer
+# Install PyTorch first (see README), then: pip install -r requirements.txt
 
-# Core ML
+# ── Core ML ───────────────────────────────────────────────────────────────────
 torch>=2.1.0
 transformers>=4.40.0
 sentence-transformers>=2.6.0
 accelerate>=0.28.0
+bitsandbytes                    # 4-bit quantization (required for generation)
 
-# Vector Search
-faiss-cpu>=1.7.4  # Use faiss-gpu for GPU systems
+# ── Tokenization ──────────────────────────────────────────────────────────────
+sentencepiece                   # Required by XLM-RoBERTa tokenizer
+tiktoken                        # Required by some HuggingFace tokenizers
 
-# NLP
-spacy>=3.7.0
-stanza>=1.7.0
+# ── Vector Search ─────────────────────────────────────────────────────────────
+faiss-cpu                  # GPU-accelerated FAISS for CUDA 12.x (use faiss-gpu-cu11 for CUDA 11.x, or faiss-cpu for no GPU)
 
-# API
+# ── NLP ───────────────────────────────────────────────────────────────────────
+spacy>=3.7.0                    # English claim extraction
+stanza>=1.7.0                   # Indic language claim extraction
+
+# ── API ───────────────────────────────────────────────────────────────────────
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.0.0
+httpx>=0.27.0                   # Async HTTP for FastAPI
 
-# Dashboard
+# ── Dashboard ─────────────────────────────────────────────────────────────────
 streamlit>=1.33.0
 pandas>=2.0.0
 
-# Utilities
+# ── Knowledge Base Builder ────────────────────────────────────────────────────
+requests>=2.31.0                # Wikipedia API fetching
+datasets>=2.19.0                # HuggingFace datasets (for evaluation)
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
 pyyaml>=6.0
-requests>=2.31.0
 numpy>=1.24.0
+tqdm>=4.66.0                    # Progress bars
 
-# Indic NLP (optional, for deeper Indic language support)
-# indic-nlp-library>=0.92
-
-# Testing
+# ── Testing ───────────────────────────────────────────────────────────────────
 pytest>=8.0.0
+pytest-asyncio>=0.23.0          # Async test support
+
+# ── Optional: Indic NLP (uncomment for deeper Indic language support) ─────────
+# indic-nlp-library>=0.92
